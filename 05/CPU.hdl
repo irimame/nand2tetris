@@ -1,0 +1,153 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/5/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM = 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+
+    And(a=instruction[15], b=true, out=isInstC);
+    Mux(a=false, b=instruction[0], sel=isInstC, out=cJmpGT);
+    Mux(a=false, b=instruction[1], sel=isInstC, out=cJmpEQ);
+    Mux(a=false, b=instruction[2], sel=isInstC, out=cJmpLT);
+    Mux(a=false, b=instruction[3], sel=isInstC, out=cDestM);
+    Mux(a=false, b=instruction[4], sel=isInstC, out=cDestD);
+    Mux(a=false, b=instruction[5], sel=isInstC, out=cDestA);
+
+    Mux16(a=instruction, b=aluout, sel=instruction[15], out=w0);
+    Not(in=isInstC, out=isInstA);
+    Or(a=isInstA, b=cDestA, out=writeA);
+    ARegister(in=w0, load=writeA, out=regA);
+    Mux16(a=regA, b=inM, sel=instruction[12], out=regAorInM); // A or M
+    ALU(x=regD, y=regAorInM, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluout, out=outM, zr=zr, ng=ng);
+    DRegister(in=aluout, load=cDestD, out=regD);
+
+    Mux(a=false, b=true, sel=cDestM, out=writeM);
+    And16(a=regA, b=true, out[0..14]=addressM[0..14]);
+
+
+    // JGT 001
+    Xor(a=cJmpGT, b=true, out=b10);
+    Xor(a=cJmpEQ, b=false, out=b11);
+    Xor(a=cJmpLT, b=false, out=b12);
+    Or(a=b10, b=b11, out=b13);
+    Or(a=b12, b=b13, out=b14);
+
+    Or(a=ng, b=zr, out=b15);
+    
+    Mux(a=true, b=false, sel=b15, out=isjgt);
+    Mux(a=isjgt, b=false, sel=b14, out=isJGT);
+
+
+    // JEQ 010
+    Xor(a=cJmpGT, b=false, out=b20);
+    Xor(a=cJmpEQ, b=true, out=b21);
+    Xor(a=cJmpLT, b=false, out=b22);
+    Or(a=b20, b=b21, out=b23);
+    Or(a=b22, b=b23, out=b24);
+
+    Xor(a=zr, b=true, out=b25);
+    
+    Mux(a=true, b=false, sel=b25, out=isjeq);
+    Mux(a=isjeq, b=false, sel=b24, out=isJEQ);
+
+
+    // JGE 011
+    Xor(a=cJmpGT, b=true, out=b30);
+    Xor(a=cJmpEQ, b=true, out=b31);
+    Xor(a=cJmpLT, b=false, out=b32);
+    Or(a=b30, b=b31, out=b33);
+    Or(a=b32, b=b33, out=b34);
+
+    Xor(a=ng, b=false, out=b35);
+    
+    Mux(a=true, b=false, sel=b35, out=isjge);
+    Mux(a=isjge, b=false, sel=b34, out=isJGE);
+
+
+    // JLT 100
+    Xor(a=cJmpGT, b=false, out=b40);
+    Xor(a=cJmpEQ, b=false, out=b41);
+    Xor(a=cJmpLT, b=true, out=b42);
+    Or(a=b40, b=b41, out=b43);
+    Or(a=b42, b=b43, out=b44);
+
+    Xor(a=ng, b=true, out=b45);
+    
+    Mux(a=true, b=false, sel=b45, out=isjlt);
+    Mux(a=isjlt, b=false, sel=b44, out=isJLT);
+
+
+
+    // JNE 101
+    Xor(a=cJmpGT, b=true, out=b50);
+    Xor(a=cJmpEQ, b=false, out=b51);
+    Xor(a=cJmpLT, b=true, out=b52);
+    Or(a=b50, b=b51, out=b53);
+    Or(a=b52, b=b53, out=b54);
+
+    Xor(a=zr, b=false, out=b55);
+    
+    Mux(a=true, b=false, sel=b55, out=isjne);
+    Mux(a=isjne, b=false, sel=b54, out=isJNE);
+
+
+    // JLE 110
+    Xor(a=cJmpGT, b=false, out=b60);
+    Xor(a=cJmpEQ, b=true, out=b61);
+    Xor(a=cJmpLT, b=true, out=b62);
+    Or(a=b60, b=b61, out=b63);
+    Or(a=b62, b=b63, out=b64);
+
+    Or(a=ng, b=zr, out=b65);
+
+    Mux(a=false, b=true, sel=b65, out=isjle);
+    Mux(a=isjle, b=false, sel=b64, out=isJLE);
+
+
+
+    // JMP 111
+    Xor(a=cJmpGT, b=true, out=b70);
+    Xor(a=cJmpEQ, b=true, out=b71);
+    Xor(a=cJmpLT, b=true, out=b72);
+
+    Or(a=b70, b=b71, out=b73);
+    Or(a=b72, b=b73, out=b74);
+    
+    Mux(a=true, b=false, sel=b74, out=isJMP);
+
+
+    // 
+    Or8Way(in[0]=false, in[1]=isJGT, in[2]=isJEQ, in[3]=isJGE, in[4]=isJLT, in[5]=isJNE, in[6]=isJLE, in[7]=isJMP, out=isJmp);
+    Or(a=isJmp, b=reset, out=notIsInc);
+    Not(in=notIsInc, out=isInc);
+    
+    PC(in=regA, load=isJmp, inc=isInc, reset=reset, out[0..14]=pc[0..14]);
+}
