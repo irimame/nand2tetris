@@ -1,0 +1,142 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+/**
+ * Represents character strings. In addition for constructing and disposing
+ * strings, the class features methods for getting and setting individual
+ * characters of the string, for erasing the string's last character,
+ * for appending a character to the string's end, and more typical
+ * string-oriented operations.
+ */
+class String {
+    field int stringLength, maxStringLength;
+    field Array stringArray;
+
+    /** constructs a new empty string with a maximum length of maxLength
+     *  and initial length of 0. */
+    constructor String new(int maxLength) {
+        let stringLength = 0;
+        let maxStringLength = maxLength;
+        if (maxLength > 0) {
+            let stringArray = Array.new(maxLength);
+        }
+        return this;
+    }
+
+    /** Disposes this string. */
+    method void dispose() {
+        if (maxStringLength > 0) {
+            do stringArray.dispose();
+        }
+        return;
+    }
+
+    /** Returns the current length of this string. */
+    method int length() {
+        return stringLength;
+    }
+
+    /** Returns the character at the j-th location of this string. */
+    method char charAt(int j) {
+        return stringArray[j];
+    }
+
+    /** Sets the character at the j-th location of this string to c. */
+    method void setCharAt(int j, char c) {
+        let stringArray[j] = c;
+        return;
+    }
+
+    /** Appends c to this string's end and returns this string. */
+    method String appendChar(char c) {
+        var int i;
+        var Array newStringArray;
+
+        if (stringLength < maxStringLength) {
+            do setCharAt(stringLength, c);
+            let stringLength = stringLength + 1;
+        }
+        else {
+            do Sys.error(5);
+        }
+        return this;
+    }
+
+    /** Erases the last character from this string. */
+    method void eraseLastChar() {
+        let stringLength = stringLength - 1;
+        return;
+    }
+
+    /** Returns the integer value of this string, 
+     *  until a non-digit character is detected. */
+    method int intValue() {
+        var int i, sum, val;
+        var boolean isNegVal;
+
+        let i = 0;
+        let sum = 0;
+        if (stringArray[0] = 45) {
+            let isNegVal = true;
+            let i = i + 1;
+        }
+        else {
+            let isNegVal = false;
+        }
+        while ( (i < maxStringLength) & (stringArray[i] > 47) & (stringArray[i] < 58) ) {
+            let val = stringArray[i] - 48;
+            let sum = sum * 10 + val;
+            let i = i + 1;
+        }
+        if (isNegVal) {
+            let sum = -sum;
+        }
+        return sum;
+    }
+
+    /** Sets this string to hold a representation of the given value. */
+    method void setInt(int val) {
+        var boolean isNegVal;
+        var int absVal, i;
+        var String invValString;
+        
+        if (val < 0) {
+            let isNegVal = true;
+        }
+        else {
+            let isNegVal = false;
+        }
+        let invValString = String.new(6);
+        let absVal = Math.abs(val);
+        while (absVal > 0) {
+            let invValString = invValString.appendChar(absVal - (absVal / 10 * 10) + 48);
+            let absVal = absVal / 10;
+        }
+        let stringLength = 0;
+        if (isNegVal) {
+            do appendChar(45);
+        }
+        let i = 0;
+        while (i < invValString.length()) {
+            do appendChar(invValString.charAt(invValString.length() - 1 - i));
+            let i = i + 1;
+        }
+        do invValString.dispose(); 
+        return;
+    }
+
+    /** Returns the new line character. */
+    function char newLine() {
+        return 128;
+    }
+
+    /** Returns the backspace character. */
+    function char backSpace() {
+        return 129;
+    }
+
+    /** Returns the double quote (") character. */
+    function char doubleQuote() {
+        return 34;
+    }
+}

@@ -1,0 +1,102 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+    static Array memory, freeList;
+    static int HEAPBASE, IND_SEG_SIZE, IND_SEG_NEXT, IND_OBJ_SIZE;
+
+    /** Initializes the class. */
+    function void init() {
+        let memory = 0;
+        let HEAPBASE = 2048;
+        let IND_SEG_SIZE = 0;
+        let IND_SEG_NEXT = 1;
+        let IND_OBJ_SIZE = -1;
+        let freeList = HEAPBASE;
+        let freeList[IND_SEG_SIZE] = 16384 - HEAPBASE;
+        let freeList[IND_SEG_NEXT] = null;
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return memory[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let memory[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) {
+        var Array segment, block;
+        var int blockBaseAddress;
+
+        let segment = freeList;
+        while (segment[IND_SEG_SIZE] < size + 2) {
+            if (segment[IND_SEG_NEXT] = null) {
+                do Sys.error(0);
+            }
+            let segment = segment[IND_SEG_NEXT];
+        }
+        let blockBaseAddress = segment + segment[IND_SEG_SIZE] - size;
+        let block = blockBaseAddress;
+        let block[IND_SEG_SIZE] = size + 1;
+        let segment[IND_SEG_SIZE] = segment[IND_SEG_SIZE] - block[IND_SEG_SIZE];
+        return blockBaseAddress; 
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array o) {
+        var Array deAllocSeg, currentSeg, nextSeg;
+        var int deAllocSize;
+        var boolean willContinue;
+
+        let deAllocSeg = o - 1;
+        let deAllocSize = o[IND_OBJ_SIZE];
+        let willContinue = true;
+        if (deAllocSeg < freeList) {
+            let deAllocSeg[IND_SEG_NEXT] = freeList;
+            do Memory.defragment(deAllocSeg, freeList);
+            let freeList = deAllocSeg;
+            let willContinue = false;
+        }
+        let currentSeg = freeList;
+        while (willContinue) {
+            let nextSeg = currentSeg[IND_SEG_NEXT];
+            if (nextSeg = null) {
+                let currentSeg[IND_SEG_NEXT] = deAllocSeg;
+                let deAllocSeg[IND_SEG_NEXT] = null;
+                do Memory.defragment(currentSeg, deAllocSeg);
+                let willContinue = false;
+            }
+            else {
+                if (deAllocSeg < nextSeg) {
+                    let currentSeg[IND_SEG_NEXT] = deAllocSeg;
+                    let deAllocSeg[IND_SEG_NEXT] = nextSeg;
+                    do Memory.defragment(currentSeg, deAllocSeg);
+                    let willContinue = false;
+                }
+            }
+            let currentSeg = currentSeg[IND_SEG_NEXT];
+        }
+        return;
+    }    
+
+    function void defragment(Array seg, Array nextSeg) {
+        if ((seg + seg[IND_SEG_SIZE]) = nextSeg) {
+            let seg[IND_SEG_SIZE] = seg[IND_SEG_SIZE] + nextSeg[IND_SEG_SIZE];
+            let seg[IND_SEG_NEXT] = nextSeg[IND_SEG_NEXT];
+        }
+        return;
+    }
+}

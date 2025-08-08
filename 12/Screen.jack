@@ -1,0 +1,190 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 512 rows (indexed 0..511, top to bottom)
+ * of 256 pixels each (indexed 0..255, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen {
+    static int SCREEN_BASE, SCREEN_SIZE;
+    static boolean isPaintColorBlack;
+    static int n;
+    static Array powersOfTwo;
+
+    /** Initializes the Screen. */
+    function void init() {
+        var int i;
+
+        let SCREEN_BASE = 16384;
+        let SCREEN_SIZE = 8192;
+        let isPaintColorBlack = true;
+        let n = 16;
+        let i = 1;
+        let powersOfTwo = Array.new(n);
+        let powersOfTwo[0] = 1;
+        while (i < n) {
+            let powersOfTwo[i] = powersOfTwo[i - 1] + powersOfTwo[i - 1]; 
+            let i = i + 1;
+        }
+        return;
+    }
+
+    /** Erases the entire screen. */
+    function void clearScreen() {
+        var int i;
+        
+        while (i < SCREEN_SIZE) {
+            do Memory.poke(SCREEN_BASE + i, false);
+            let i = i + 1;
+        }
+        return;
+    }
+
+    /** Sets the current color, to be used for all subsequent drawXXX commands.
+     *  Black is represented by true, white by false. */
+    function void setColor(boolean b) {
+        let isPaintColorBlack = b;
+        return;
+    }
+
+    /** Draws the (x,y) pixel, using the current color. */
+    function void drawPixel(int x, int y) {
+        var int ramIndex, pixelIndex, value;
+
+        let ramIndex = (y * 32) + (x / 16);
+        let pixelIndex = x - (x / 16 * 16); // x % 16
+        let value = Memory.peek(SCREEN_BASE + ramIndex);
+
+        // value[pixelIndex] = 1 (black)
+        if (value & powersOfTwo[pixelIndex]) {
+            if (~isPaintColorBlack) {
+                // change black into white
+                let value = value - powersOfTwo[pixelIndex];
+            }
+        }
+        // value[pixelIndex] = 0 (white)
+        else {
+            if (isPaintColorBlack) {
+                // change white into black
+                let value = value + powersOfTwo[pixelIndex];
+            }
+        }
+        do Memory.poke(SCREEN_BASE + ramIndex, value);
+        return;
+    }
+
+    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    function void drawLine(int x1, int y1, int x2, int y2) {
+        var int x, y, a, b, dx, dy, diff;
+        var boolean isDxNeg, isDyNeg;
+
+        let a = 0;
+        let b = 0;
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let isDxNeg = false;
+        let isDyNeg = false;
+        if (dx < 0) {
+            let isDxNeg = true;
+        }
+        if (dy < 0) {
+            let isDyNeg = true;
+        }
+        let dx = Math.abs(dx);
+        let dy = Math.abs(dy);
+        let x = x1;
+        let y = y1;
+        if ((dx = 0) | (dy = 0)) {
+            if (dx = 0) {
+                while (~(y = y2)) {
+                    do Screen.drawPixel(x, y);
+                    if (isDyNeg) {
+                        let y = y - 1;
+                    }
+                    else {
+                        let y = y + 1;
+                    }
+                }
+                do Screen.drawPixel(x, y);
+            }
+            else {
+                while (~(x = x2)) {
+                    do Screen.drawPixel(x, y);
+                    if (isDxNeg) {
+                        let x = x - 1;
+                    }
+                    else {
+                        let x = x + 1;
+                    }
+                }
+                do Screen.drawPixel(x, y);
+            }
+        }
+        else {
+            while (~((x = x2) & (y = y2))) {
+                do Screen.drawPixel(x, y);
+                let diff = (a * dy) - (b * dx);
+                if (diff < 0) {
+                    if (isDxNeg) {
+                        let x = x - 1;
+                    }
+                    else {
+                        let x = x + 1;
+                    }
+                    let a = a + 1;
+                }
+                else {
+                    if (isDyNeg) {
+                        let y = y - 1;
+                    }
+                    else {
+                        let y = y + 1;
+                    }
+                    let b = b + 1;               
+                }
+            }
+            do Screen.drawPixel(x, y);
+        }
+        return;
+    }
+
+    /** Draws a filled rectangle whose top left corner is (x1, y1)
+     *  and bottom right corner is (x2,y2), using the current color. */
+    function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int xmin, ymin, xmax, ymax, y;
+
+        let xmin = Math.min(x1, x2);
+        let ymin = Math.min(y1, y2);
+        let xmax = Math.max(x1, x2);
+        let ymax = Math.max(y1, y2);
+        let y = ymin;
+        while (~(y = ymax)) {
+            do Screen.drawLine(xmin, y, xmax, y);
+            let y = y + 1;
+        }
+        do Screen.drawLine(xmin, y, xmax, y);
+        return;
+    }
+
+    /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+    function void drawCircle(int x, int y, int r) {
+        var int xL, xR, dy;
+
+        if ((r < 0) | (r > 181)) {
+            do Sys.error(2);
+        }
+        let dy = -r;
+        while (~(dy = r)) {
+            let xL = x - Math.sqrt((r * r) - (dy * dy));
+            let xR = x + Math.sqrt((r * r) - (dy * dy));
+            do Screen.drawLine(xL, y + dy, xR, y + dy);
+            let dy = dy + 1;
+        }
+        let xL = x - Math.sqrt((r * r) - (dy * dy));
+        let xR = x + Math.sqrt((r * r) - (dy * dy));
+        do Screen.drawLine(xL, y + dy, xR, y + dy);
+        return;
+    }
+}
